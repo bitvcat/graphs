@@ -1,0 +1,40 @@
+// mysql eof 包结构图
+digraph G {
+	//size ="3,3";
+	clusterrank=local;
+	compound =true;
+	ratio=auto;
+	graph [fontname="Microsoft YaHei"];
+	node [fontname="Microsoft YaHei"];
+	edge [fontname="Microsoft YaHei"];
+	label="EOF Packet";
+
+	{
+		subgraph cluster_head {
+			pkt [shape=record,label="payload长度(3 byte)| 包序号 (1 byte)"];
+			color = blue;
+			style=dotted;
+			label="header";
+		}
+		subgraph cluster_data{
+			data [shape=record, label="payload  (N bytes)"];
+			style=dotted;
+			label="payload";
+			color=red;
+		}
+	}
+
+	subgraph cluster_payload {
+		style=dotted;
+		compound = true;
+		command[
+			shape=record,
+			label=" 0xFE (int\<1\>) |
+				warnings (int\<2\>) |
+				<f0> status_flags (int\<2\>)
+				"
+		];
+		label="";
+	}
+	data->command[lhead=cluster_payload, minlen=2];
+}
