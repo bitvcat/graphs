@@ -1,0 +1,174 @@
+@startuml
+
+'title Skynet \n
+
+digraph G {
+	graph [fontname="Microsoft Yahei",
+		//fontcolor = red
+	];
+	node [fontname="Microsoft Yahei"];
+	edge [fontname="Microsoft Yahei"];
+	compound = true;
+	landscape = false;
+	rankdir = LR;
+	//splines = polyline;
+
+	subgraph cluster_handle {
+		fontcolor = green;
+		label = "handle_storage* H";
+		color = gold;
+		style = "filled";
+		penwidth = 3;
+
+		handle [
+			shape=Mrecord,
+			label="
+				struct handle_storage \{
+				\l |struct rwlock lock;
+				\l |uint32_t harbor;
+				\l |uint32_t handle_index;
+				\l |int slot_size;
+				\l |<slot> struct skynet_context ** slot;\n// 存储着所有服务实例
+				\l |int name_cap;
+				\l |int name_count;
+				\l |<name> struct handle_name *name;
+				\l |\}
+				\l
+			"
+		];
+	}
+
+	// 服务实例（context）的指针数组
+	subgraph cluster_slots {
+		label = "context list";
+		labeljust = l;
+		color = lightgrey;
+		style = "filled";
+
+		slots [
+			shape = record,
+			label = "<f0> *ctx1| *ctx2| *ctx3| ..."
+		];
+		//note [color=white, style="filled", shape=plaintext, label="AAA\n aaaa"];
+		//slots -> note [style=invis, minlen=1];
+	}
+
+	// 服务实例的名称列表
+	subgraph cluster_names {
+		label = "names list";
+		color = lightgrey;
+		style = "filled";
+
+		names [
+			shape = record,
+			label = "<f0> name1| name2| name3| ..."
+		];
+	}
+	handle:slot -> slots [headlabel="aaaa", labeldistance=6, lhead=cluster_slots];
+	handle:name -> names [headlabel="aaaa", labeldistance=1, lhead=cluster_names];
+
+	// 服务名称结构
+	subgraph cluster_name {
+		label = "context name";
+		color = gold;
+		style = "filled";
+
+		name [
+			shape = Mrecord,
+			label="
+				struct handle_name \{
+				| char * name;
+				| uint32_t handle;
+				| \} \l
+			"
+		];
+	}
+	names:f0 -> name:w [lhead="cluster_name", minlen=1];
+
+	// 服务实例结构
+	subgraph cluster_context {
+		fontcolor = green;
+		label = "skynet_context";
+		color = gold;
+		style = "filled";
+		penwidth = 3;
+
+		context [
+			shape=record,
+			label="<f0> struct skynet_context \{
+				\l | void * instance;
+				\l | <mod> struct skynet_module * mod;
+				\l | void * cb_ud;
+				\l | skynet_cb cb;
+				\l | <queue> struct message_queue *queue;
+				\l | FILE * logfile;
+				\l | uint64_t cpu_cost;	// in microsec
+				\l | uint64_t cpu_start;	// in microsec
+				\l | char result[32];
+				\l | uint32_t handle;
+				\l | int session_id;
+				\l | int ref;
+				\l | int message_count;
+				\l | bool init;
+				\l | bool endless;
+				\l | bool profile;
+				\l | CHECKCALLING_DECL
+				\l | \};
+				\l
+			"
+		];
+	}
+	slots:f0:e -> context:f0:e[lhead=cluster_context, weight=10];
+
+	// skynet 的 C 服务模块，即服务工厂的动态链接库
+	subgraph cluster_module {
+		fontcolor = green;
+		label = "skynet_module";
+		color = gold;
+		style = "filled";
+		penwidth = 3;
+
+		module [
+			shape=Mrecord,
+			label="
+				<f0> struct skynet_module \{
+				\l |const char * name;
+				\l |void * module;
+				\l |skynet_dl_create create;
+				\l |skynet_dl_init init;
+				\l |skynet_dl_release release;
+				\l |skynet_dl_signal signal;
+				\l |\};
+				\l
+			"
+		];
+	}
+	context:mod -> module [
+		//arrowhead=none,
+		color="green:red;0.25:blue",
+		dir = none
+	];
+
+	// 服务的消息队列
+	subgraph cluster_gqueue {
+		label = "names list";
+		color = lightgrey;
+		style = "filled";
+
+		node [shape=box]
+		{
+			rank=same;
+			gqueue1[label="mq1"];
+			gqueue2[label="mq2"];
+			gqueue3[label="mq3"];
+			gqueue4[label="..."];
+		}
+		gqueue1 -> gqueue2 -> gqueue3 -> gqueue4;
+	}
+	context:queue -> gqueue1;
+
+	label = <The <font color='red'><b>foo</b></font>,<br/> the <font point-size='20'>bar</font> and<br/> the <i>baz</i>>;
+	//label = "skynet 数据结构";
+}
+
+@enduml
