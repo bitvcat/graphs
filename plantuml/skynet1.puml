@@ -1,0 +1,306 @@
+@startuml
+
+digraph G {
+	graph [fontname="Microsoft Yahei"];
+	node [fontname="Microsoft Yahei", shape=box];
+	edge [fontname="Microsoft Yahei"];
+
+	rankdir = LR;
+	compound = true;
+	//splines = polyline;
+	//splines = ortho;
+	label = "skynet 结构体关系图";
+
+	{
+		rank=same;
+		H[shape=plain, label=<
+			<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+			  <tr>
+			    <td rowspan="3" port="f0">*H</td>
+			    <td port="slot">H-&gt;slot</td>
+			  </tr>
+			  <tr>
+			    <td port="name">H-&gt;name</td>
+			  </tr>
+			  <tr>
+			    <td port="other">...</td>
+			  </tr>
+			</table>
+		>];
+		Q[shape=plain, label=<
+			<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+			  <tr>
+			    <td rowspan="2" port="f0">*Q</td>
+			    <td port="head">Q-&gt;head</td>
+			  </tr>
+			  <tr>
+			    <td port="tail">Q-&gt;tail</td>
+			  </tr>
+			</table>
+		>];
+		M[shape=plain, label=<
+			<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+			  <tr>
+			    <td rowspan="2" port="f0">*M</td>
+			    <td port="path">M-&gt;path</td>
+			  </tr>
+			  <tr>
+			    <td port="m">M-&gt;m</td>
+			  </tr>
+			</table>
+		>];
+		E[shape=plain, label=<
+			<table border="0" cellborder="1" cellspacing="0" cellpadding="5">
+			  <tr>
+			    <td port="f0">*E</td>
+			    <td port="L">E-&gt;L</td>
+			  </tr>
+			</table>
+		>];
+
+		H -> Q -> M -> E[style="dashed", minlen=3, dir=none];
+	}
+
+	// --------- 以下是对象数组、链表 ---------
+	// ctx list
+	{
+		graph [color = lightgrey, fontcolor = darkviolet, style = "filled"];
+		subgraph cluster_ctxs {
+			label = "H-\>slot";
+			ctxs [
+				shape = record,
+				label = "{<ctx1> *ctx1 | { handle|<instance> *instance| *mod|<queue> *queue| ...}}| *ctx2| *ctx3| ..."
+			];
+		}
+
+		// name list
+		subgraph cluster_names {
+			label = "H-\>name";
+			names [
+				shape = record,
+				label="<name1> name1| name2| name3| ..."
+			];
+		}
+
+		// mq linked list
+		subgraph cluster_mqs {
+			label = "Mq list";
+
+			mq1[shape=plain, label=<
+				<table border="0" cellborder="1" cellspacing="0" cellpadding="7">
+				  <tr>
+				    <td rowspan="2" port="f0">*mq1</td>
+				    <td port="handle">handle</td>
+				  </tr>
+				  <tr>
+				    <td port="queue">*queue</td>
+				  </tr>
+				</table>
+			>];
+
+			node [width=1.7];
+			mq2[label="*mq2"];
+			mq3[label="*mq3"];
+			mq4[label="..."];
+			mq1 -> mq2 -> mq3 -> mq4 [constraint=false];
+		}
+
+		path [shape=note, label="服务动态库路径\n eg.: skynet/cservice/snlua.so"];
+		envl [shape=note, label="全局环境配置\n 本质是一个 lua vm"];
+		instance [shape=note, label="服务对象的指针\n 由 ctx->mod 创建出来的"];
+	}
+
+	// --------- 以下是结构体定义 ---------
+	{
+		graph [color = lightgoldenrod, fontcolor = deepskyblue, style = "filled", penwidth = 3];
+		subgraph cluster_handle {
+			label = "struct handle_storage";
+
+			handle_storage [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="
+					struct handle_storage \{
+					\l |struct rwlock lock;
+					\l |uint32_t harbor;
+					\l |uint32_t handle_index;
+					\l |int slot_size;
+					\l |<slot> struct skynet_context ** slot;\n// 存储着所有服务
+					\l |int name_cap;
+					\l |int name_count;
+					\l |<name> struct handle_name *name;
+					\l |\}
+					\l
+				"
+			];
+		}
+
+		subgraph cluster_context {
+			label = "struct skynet_context";
+
+			skynet_context [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="<f0> struct skynet_context \{
+					\l | void * instance;
+					\l | <mod> struct skynet_module * mod;
+					\l | void * cb_ud;
+					\l | skynet_cb cb;
+					\l | <queue> struct message_queue *queue;
+					\l | FILE * logfile;
+					\l | uint64_t cpu_cost;	// in microsec
+					\l | uint64_t cpu_start;	// in microsec
+					\l | char result[32];
+					\l | uint32_t handle;
+					\l | int session_id;
+					\l | int ref;
+					\l | int message_count;
+					\l | bool init;
+					\l | bool endless;
+					\l | bool profile;
+					\l | CHECKCALLING_DECL
+					\l | \};
+					\l
+				"
+			];
+		}
+
+		subgraph cluster_handlename {
+			label = "struct handle_name";
+
+			handle_name [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="
+					struct handle_name \{ |
+					char * name; |
+					uint32_t handle; |
+					\} \l
+				"
+			];
+		}
+
+		subgraph cluster_globalmq {
+			label = "struct global_queue";
+
+			global_queue [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="struct global_queue \{
+					\l | struct message_queue *head;
+					\l | struct message_queue *tail;
+					\l | struct spinlock lock;
+					\l | \}\l
+				"
+			];
+		}
+
+		subgraph cluster_mq {
+			label = "struct message_queue";
+
+			message_queue [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="struct message_queue \{
+					\l | struct spinlock lock;
+					\l | uint32_t handle;
+					\l | int cap;
+					\l | int head;
+					\l | int tail;
+					\l | int release;
+					\l | int in_global;
+					\l | int overload;
+					\l | int overload_threshold;
+					\l | struct skynet_message *queue;
+					\l | struct message_queue *next;
+					\l | \}\l
+				"
+			];
+		}
+
+		subgraph cluster_msg {
+			label = "struct skynet_message";
+
+			skynet_message [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="struct skynet_message \{
+					\l | uint32_t source;
+					\l | int session;
+					\l | void * data;
+					\l | size_t sz;
+					\l | \}\l
+				"
+			];
+		}
+
+		subgraph cluster_modules {
+			label = "struct modules";
+
+			modules [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="struct modules \{
+					\l | int count;
+					\l | struct spinlock lock;
+					\l | const char * path;
+					\l | struct skynet_module m[32];
+					\l | \}\l
+				"
+			];
+		}
+
+		subgraph cluster_module {
+			label = "struct skynet_module";
+
+			skynet_module [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="struct modules \{
+					\l | const char * name;
+					\l | void * module;
+					\l | skynet_dl_create create;
+					\l | skynet_dl_init init;
+					\l | skynet_dl_release release;
+					\l | skynet_dl_signal signal;
+					\l | \}\l
+				"
+			];
+		}
+	}
+
+
+	// --------- 以下是指向关系 ---------
+	{
+		H:slot:e -> ctxs:ctx1:w [lhead=cluster_ctxs];
+		H:name:e -> names 		[lhead=cluster_names];
+		Q:head:e -> mq1:w;
+		Q:tail:e -> mq4:w;
+		M:path:e -> path 		[color=red, style="dotted"];
+		E:L:e 	 -> envl		[color=red, style="dotted"];
+	}
+
+	{
+		edge [color=red, style="dotted", dir=back; arrowtail=vee, minlen=2];
+		handle_storage 	-> H:f0 			[ltail=cluster_handle];
+		global_queue 	-> Q 				[ltail=cluster_globalmq];
+		modules 		-> M;
+		skynet_module	-> M:m;
+	}
+
+	{
+		edge [color=red, style="dotted", minlen=2];
+		ctxs:ctx1 		-> skynet_context 	[lhead=cluster_context];
+		names:name1 	-> handle_name 		[lhead=cluster_handlename];
+		mq1:f0:ne 		-> message_queue 	[lhead=cluster_mq];
+		mq1:queue:e 	-> skynet_message	[lhead=cluster_msg];
+		ctxs:instance	-> instance;
+	}
+
+	{
+		edge [color=blue, style="bold", dir=none, constraint=false];
+		ctxs:queue:w 	-> mq1:nw 		[label="关联"];
+	}
+}
+
+@enduml
