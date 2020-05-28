@@ -1,0 +1,54 @@
+@startuml
+skinparam sequenceMessageAlign center
+
+start
+:收到服务创建消息\n //skynet_context_new//;
+note right
+    两个参数：
+    name=服务模板名称
+    param=创建服务实例所需参数
+end note
+
+:查询服务模板\n //skynet_module_query//;
+if (模板存在) then (yes)
+    ' 创建部分
+    partition create #LightCyan {
+        #HotPink:使用模板创建服务实例
+        //skynet_module_instance_create//;
+
+        :创建服务上下文
+        //skynet_malloc(sizeof(*ctx))//;
+        note left
+            这里会把创建好的服务实例挂载到上下文
+            即：ctx->instance = inst;
+        end note
+
+        :注册到服务仓库中
+        //skynet_handle_register(ctx)//;
+        note left
+            加入到服务仓库后，
+            会分配一个handle id 给 ctx
+        end note
+
+        :创建服务的消息队列\n //skynet_mq_create//;
+        :ctx 的总数+1\n //context_inc//;
+    }
+
+    ' 初始化部分
+    partition init #LightSkyBlue {
+        #HotPink:服务实例初始化
+        //skynet_module_instance_init//;
+
+        if (初始化成功) then (yes)
+            :把服务消息队列push到全局消息队列
+            //skynet_globalmq_push//;
+        else (no)
+            :释放销毁ctx\n //skynet_context_release//;
+            :释放销毁消息队列\n //skynet_mq_release//;
+        endif
+    }
+endif
+
+stop
+
+@enduml

@@ -1,0 +1,32 @@
+@startuml
+skinparam sequenceMessageAlign center
+skinparam backgroundColor #EEEBDC
+skinparam handwritten true
+
+skinparam sequence {
+    ArrowColor DeepSkyBlue
+    ActorBorderColor DeepSkyBlue
+    LifeLineBorderColor blue
+    LifeLineBackgroundColor #A9DCDF
+    ParticipantBorderColor DeepSkyBlue
+    ParticipantBackgroundColor DodgerBlue
+    ParticipantFontName Impact
+    ParticipantFontSize 17
+    ParticipantFontColor #A9DCDF
+    ActorBackgroundColor aqua
+    ActorFontColor DeepSkyBlue
+    ActorFontSize 17
+    ActorFontName Aapex
+}
+
+lua -> c : c.command("LAUNCH", "snlua xxx")
+activate c
+
+c -> c : lcommand(L)
+c -> c : skynet_command(context, "LAUNCH", "snlua xxx")
+c -> c : cmd_launch(context, "snlua xxx")
+c -> c : skynet_context_new("snlua", "xxx")
+'note over c: This is displayed over Alice.
+
+return id_to_hex
+@enduml
