@@ -1,0 +1,36 @@
+@startuml
+start
+:skynet_initthread|
+
+while (是否退出（m->quit==0）?)
+    partition dispatch #LightCyan {
+        skinparam ActivityBackgroundColor #HotPink
+        :尝试弹出一个mq
+        //skynet_globalmq_pop//;
+
+        :获取消息队列所属的ctx
+        //skynet_handle_grab//;
+        if (ctx!=null) then (yes)
+            :派发指定数量的消息;
+            :再尝试弹出下一个nextmq;
+            if (nextmq != null) then (yes)
+                :把当前mq重新push回globalmq
+                //skynet_globalmq_push//;
+                :返回nextmq;
+            else (no)
+                :返回当前mq;
+            endif
+        else (no)
+            :丢弃剩余的消息
+            //skynet_mq_release//;
+            :弹出下一个mq;
+        endif
+    }
+
+    if (globalmq为空) then
+        :睡眠线程;
+    endif
+endwhile
+
+stop
+@enduml
