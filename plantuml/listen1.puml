@@ -1,0 +1,40 @@
+@startuml
+participant Worker
+participant Socket
+
+== 创建监听 ==
+Worker -> Worker ++ #FFBBBB: socket_server_listen
+Worker -> Worker: do_listen
+Worker -> Worker: reserve_id
+Worker -> Worker: send_request('L')
+return
+note over Worker #FEDCBA: 此时socket状态为 RESERVE
+
+Worker --> Socket: <<pipe>>
+... pipe ...
+
+Socket -> Socket ++ #DarkSalmon: ctrl_cmd
+Socket -> Socket: listen_socket
+alt ok
+return
+note over Socket #lightgreen: 此时socket状态为 **PLISTEN**\n表示监听已准备就绪\n只是未注册的epoll中
+else failed
+Socket --> Worker: forward_message(SKYNET_SOCKET_TYPE_ERROR)
+note over Socket #yellow: 监听失败，socket状态切换为 **INVALID**\n(一般不会出现)
+end
+
+== 启动监听 ==
+Worker -> Worker ++ #FFBBBB: socket_server_start
+Worker -> Worker: send_request('S')
+return
+
+Worker --> Socket: <<pipe>>
+... pipe ...
+
+Socket -> Socket ++ #DarkSalmon: ctrl_cmd
+Socket -> Socket: start_socket
+return
+note over Socket #lightgreen: 此时socket状态为 **LISTEN**\n监听fd已注册到epoll中
+Socket --> Worker: forward_message(SKYNET_SOCKET_TYPE_CONNECT)
+
+@enduml

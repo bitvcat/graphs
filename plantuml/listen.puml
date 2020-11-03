@@ -1,0 +1,30 @@
+@startuml
+participant Worker
+participant Socket
+
+== 创建监听 ==
+
+'注释
+activate Worker #FFBBBB
+Worker -> Worker: socket_server_listen
+
+activate Worker #DarkSalmon
+Worker -> Worker: do_listen
+Worker -> Worker: reserve_id
+note over Worker #FEDCBA: 此时socket状态为 RESERVE
+deactivate Worker
+
+Worker --> Socket: <<send_request('L')>>
+deactivate Worker
+
+activate Socket
+Socket -> Socket: ctrl_cmd
+activate Socket #DarkSalmon
+Socket -> Socket: listen_socket
+note over Socket #FEDCBA: 此时socket状态为 PLISTEN\n表示监听已准备就绪\n只是未注册的epoll中
+deactivate Socket
+
+Socket --> Worker: forward_message
+deactivate Socket
+
+@enduml

@@ -1,0 +1,29 @@
+@startuml
+participant Worker
+participant Socket
+
+== 接收连接 ==
+Socket -> Socket ++ #FFBBBB: socket_server_poll
+Socket -> Socket : report_accept
+return
+note over Socket #lightgreen: 此时socket状态为 **PACCEPT**\n表示新的连接已被接收\n只是未注册的epoll中
+Socket --> Worker: forward_message(SKYNET_SOCKET_TYPE_ACCPET)
+
+
+== 打开连接 ==
+...
+Worker -> Worker ++ #FFBBBB: socket_server_start
+Worker -> Worker: send_request('S')
+return
+
+Worker --> Socket: <<pipe>>
+... pipe ...
+
+Socket -> Socket ++ #DarkSalmon: ctrl_cmd
+Socket -> Socket: start_socket
+return
+note over Socket #lightgreen: 此时socket状态为 **CONNECTED**\n新连接fd已注册到epoll中
+Socket --> Worker: forward_message(SKYNET_SOCKET_TYPE_CONNECT)
+
+
+@enduml

@@ -1,0 +1,197 @@
+@startuml
+
+digraph G {
+	graph [
+		fontname = "Microsoft Yahei",
+		color = lightgrey,
+		fontcolor = darkviolet,
+		style = "filled"
+	];
+	node [fontname="Microsoft Yahei", shape=box];
+	edge [fontname="Microsoft Yahei"];
+
+	rankdir = LR;
+	compound = true;
+	label = "skynet 定时器";
+
+	{
+		rank = same;
+		TI[shape=ellipse, style=filled, label=<
+			<table bgcolor="gold" border="0" cellborder="1" cellspacing="0" cellpadding="5">
+			  <tr>
+			    <td rowspan="6" port="f0">*TI</td>
+			    <td port="near"><font color="red">TI-&gt;near</font></td>
+			  </tr>
+			  <tr>
+			    <td port="t">TI-&gt;t</td>
+			  </tr>
+			  <tr>
+			    <td>TI-&gt;time</td>
+			  </tr>
+			  <tr>
+			    <td>TI-&gt;starttime</td>
+			  </tr>
+			  <tr>
+			    <td>TI-&gt;current</td>
+			  </tr>
+			  <tr>
+			    <td>TI-&gt;current_point</td>
+			  </tr>
+			</table>
+		>];
+
+		TI_Note [
+			shape = note,
+			label = "定时器有 4 个与时间相关的字段，需要注意：\l
+starttime 表示定时器初始化时开始时间戳（秒） \l
+current 表示从 starttime 开始，经过了多少厘秒（1/100 秒） \l
+current_point 表示以厘秒为单位的当前时间戳 \l
+time 表示时间轮转动次数 \l"
+		];
+		TI -> TI_Note [style=invis, constraint=false];
+	}
+
+	{
+		graph [color = lightgoldenrod];
+		subgraph cluster_timer {
+			label = "struct timer";
+
+			timer [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="
+					struct timer \{
+					\l |struct link_list near\[256\];
+					\l |struct link_list t\[4\]\[64\];
+					\l |struct spinlock lock;
+					\l |uint32_t time;
+					\l |uint32_t starttime;
+					\l |uint64_t current;
+					\l |uint64_t current_point;
+					\l |\}\l
+				"
+			];
+		}
+
+		subgraph cluster_linklist {
+			label = "struct link_list";
+
+			link_list [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="
+					struct link_list \{
+					\l |struct timer_node head;
+					\l |struct timer_node *tail;
+					\l |\}\l
+				"
+			];
+		}
+
+		subgraph cluster_timernode {
+			label = "struct timer_node";
+
+			timer_node [
+				color=cornflowerblue,
+				shape=Mrecord,
+				label="
+					struct timer_node \{
+					\l |struct timer_node *next;
+					\l |uint32_t expire;
+					\l |\}\l
+				"
+			];
+		}
+	}
+
+	subgraph cluster_near {
+		label = "link_list[256]";
+		near [
+			shape = record,
+			label = "{<f0> near\[0\] | {<head> head|<tail> *tail} }| near\[1\]| ...| near\[255\]"
+		];
+	}
+
+	subgraph cluster_link {
+		label = "link list";
+		node [shape = record];
+		edge [constraint=false];
+
+		head  [color=yellow, label="{<node0> expire\ 0|<next> *next}"];
+		node1 [label="{<node1> expire\ 1|<next> *next}"];
+		node2 [label="{<node2> expire\ 2|<next> *next}"];
+		noden [label="{<noden> expire\ n|<next> *next}"];
+		head:next -> node1:node1;
+		node1:next-> node2:node2;
+		node2:next-> noden:noden;
+	}
+
+	{
+		subgraph cluster_t {
+			label = "t[4][256]";
+			t [
+				shape = record,
+				label = "<f0> t\[0\] |<f1> t\[1\]|<f2> t\[2\]|<f3> t\[3\]"
+			];
+		}
+
+		subgraph cluster_t0 {
+			label = "t0 # link_list[64]";
+			t0 [
+				shape = record,
+				label = "<f0> link_list\[0\] | link_list\[1\]| ... | link_list\[63\]"
+			];
+		}
+		subgraph cluster_t1 {
+			label = "t1 # link_list[64]";
+			t1 [
+				shape = record,
+				label = " link_list\[0\] | link_list\[1\]| ... | link_list\[63\]"
+			];
+		}
+		subgraph cluster_t2 {
+			label = "t2 # link_list[64]";
+			t2 [
+				shape = record,
+				label = " link_list\[0\] | link_list\[1\]| ... | link_list\[63\]"
+			];
+		}
+		subgraph cluster_t3 {
+			label = "t3 # link_list[64]";
+			t3 [
+				shape = record,
+				label = " link_list\[0\] | link_list\[1\]| ... | link_list\[63\]"
+			];
+		}
+	}
+
+	{
+		edge [
+			color = red,
+			style = "dotted",
+			arrowtail = vee,
+			minlen = 2
+		];
+		timer -> TI:f0 [dir=back, ltail=cluster_timer];
+		near:f0 -> link_list [lhead=cluster_linklist];
+		head -> timer_node [lhead=cluster_timernode];
+		t0:f0:w -> link_list [lhead=cluster_linklist, constraint=false];
+
+		edge [
+			color = black,
+			style = "solid",
+			arrowtail = normal
+		];
+		TI:near -> near [lhead=cluster_near];
+		near:head:e -> head [dir=none];
+		near:tail:e -> noden;
+
+		TI:t:e -> t [lhead=cluster_t];
+		t:f0 -> t0 [lhead=cluster_t0];
+		t:f1 -> t1 [lhead=cluster_t1];
+		t:f2 -> t2 [lhead=cluster_t2];
+		t:f3 -> t3 [lhead=cluster_t3];
+	}
+}
+
+@enduml
