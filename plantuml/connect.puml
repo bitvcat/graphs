@@ -1,0 +1,28 @@
+@startuml
+participant Worker
+participant Socket
+
+== 发起连接 ==
+Worker -> Worker ++ #FFBBBB: socket_server_connect
+Worker -> Worker ++ #AACCCC: open_request
+Worker -> Worker : reserve_id
+return
+Worker -> Worker --: send_request('O')
+note over Worker #lightgreen: 此时socket状态为 **RESERVE**
+
+== 打开连接 ==
+Worker --> Socket: <<pipe>>
+... pipe ...
+
+Socket -> Socket ++ #DarkSalmon: ctrl_cmd
+Socket -> Socket: open_socket
+return
+
+alt 连接成功(通常是在服务器和客户在同一台主机上时发生)
+note over Socket #lightgreen: 此时socket状态为 **CONNECTED**\n表示连接已建立
+Socket --> Worker: forward_message(SKYNET_SOCKET_TYPE_CONNECT)
+else failed
+note over Socket #Yellow: 此时socket状态为 **CONNECTING**\n表示正在连接中
+end
+
+@enduml

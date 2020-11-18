@@ -1,0 +1,36 @@
+@startuml
+participant Worker
+participant Socket
+
+== 发起关闭 ==
+Worker -> Worker ++ #FFBBBB: socket_server_close
+Worker -> Worker : send_request('K')
+return
+
+== 关闭/停止连接 ==
+Worker --> Socket: <<pipe>>
+... pipe ...
+
+Socket -> Socket ++ #DarkSalmon: ctrl_cmd
+Socket -> Socket ++ #SkyBlue: close_socket
+
+alt #LightPink 关闭（close）
+    alt #LightYellow 数据全部发送完毕
+        Socket -> Socket: nomore_sending_data
+        Socket -> Socket: force_close
+        note over Socket #lightgreen: 此时socket状态为 **INVALID**\n表示连接已完全关闭
+        Socket --> Worker: forward_message(SKYNET_SOCKET_TYPE_CLOSE)
+    else 数据未发送完
+        Socket --> Socket: continue
+        note over Socket #Yellow: 此时socket状态为 **HALFCLOSE**\n表示连接半关闭
+    end
+else 停止（shutdown）
+    Socket -> Socket: force_close
+    note over Socket #lightgreen: 此时socket状态为 **INVALID**\n表示连接已强制关闭
+    Socket --> Worker: forward_message(SKYNET_SOCKET_TYPE_CLOSE)
+end
+
+return
+return
+
+@enduml
