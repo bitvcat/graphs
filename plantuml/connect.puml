@@ -23,6 +23,11 @@ note over Socket #lightgreen: 此时socket状态为 **CONNECTED**\n表示连接�
 Socket --> Worker: forward_message(SKYNET_SOCKET_TYPE_CONNECT)
 else failed
 note over Socket #Yellow: 此时socket状态为 **CONNECTING**\n表示正在连接中
+...
+Socket -> Socket ++ #DarkSalmon: report_connect
+return SOCKET_OPEN
+note over Socket #lightgreen: 此时socket状态为 **CONNECTED**\n表示连接已建立
+Socket --> Worker: forward_message(SKYNET_SOCKET_TYPE_CONNECT)
 end
 
 @enduml
